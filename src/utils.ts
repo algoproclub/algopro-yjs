@@ -27,13 +27,19 @@ const wsReadyStateOpen = 1;
 const wsReadyStateClosing = 2; // eslint-disable-line
 const wsReadyStateClosed = 3; // eslint-disable-line
 
-var serviceAccount = require("../serviceAccountKey.json");
+const app = (() => {
+  if (process.env.NODE_ENV === 'production') {
+    var serviceAccount = require('../serviceAccountKey.json');
 
-const app = admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL:
-    "https://algopro-app-default-rtdb.europe-west1.firebasedatabase.app",
-});
+    return admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL:
+        'https://algopro-app-default-rtdb.europe-west1.firebasedatabase.app',
+    });
+  } else {
+    return admin.initializeApp({databaseURL: 'http://firebase:9000?ns=algopro-app-default-rtdb'});
+  }
+})();
 
 const db = app.database();
 
