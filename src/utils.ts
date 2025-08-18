@@ -1,4 +1,7 @@
 import path from "path";
+import * as admin from "firebase-admin";
+import ldb from "./ldb-persistence";
+
 const Y = require("yjs");
 const syncProtocol = require("y-protocols/dist/sync.cjs");
 const awarenessProtocol = require("y-protocols/dist/awareness.cjs");
@@ -24,9 +27,25 @@ const wsReadyStateOpen = 1;
 const wsReadyStateClosing = 2; // eslint-disable-line
 const wsReadyStateClosed = 3; // eslint-disable-line
 
+var serviceAccount = require("../serviceAccountKey.json");
+
+const app = admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL:
+    "https://algopro-app-default-rtdb.europe-west1.firebasedatabase.app",
+});
+
+const db = app.database();
+
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== "false" && process.env.GC !== "0";
-import ldb from "./ldb-persistence";
+
+type FileData = {
+  content: string;
+  editTime: number;
+};
+const pending = new Map<string, FileData>();
+
 let persistence = {
   provider: ldb,
   bindState: async (docName, ydoc) => {
@@ -34,8 +53,33 @@ let persistence = {
     const newUpdates = Y.encodeStateAsUpdate(ydoc);
     ldb.storeUpdate(docName, newUpdates);
     Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc));
-    ydoc.on("update", (update) => {
+
+    ydoc.on("update", async (update) => {
       ldb.storeUpdate(docName, update);
+      const persistedYdoc = await ldb.getYDoc(docName);
+      const extension = docName.split(".")[1];
+      const fileID = docName.split(".")[0];
+      if (!["cpp", "java", "py"].includes(extension)) {
+        return;
+      }
+      let isBusy = pending.has(fileID);
+      pending.set(fileID, {
+        content: persistedYdoc.getText("monaco").toString(),
+        editTime: Date.now(),
+      });
+      if (isBusy) {
+        return;
+      }
+      setTimeout(async () => {
+        const data = pending.get(fileID);
+        pending.delete(fileID);
+        if ((await db.ref(`files/${fileID}`).get()).exists()) {
+          await db.ref(`files/${fileID}/teacher`).update({
+            codeSize: data.content.length,
+            editTime: data.editTime,
+          });
+        }
+      }, 30000);
     });
   },
   writeState: async (docName, ydoc) => {},
