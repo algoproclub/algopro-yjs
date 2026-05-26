@@ -73,7 +73,7 @@ export class StatsSync implements Extension {
   async onChange(data: onChangePayload) {
     this.instance = data.instance;
 
-    const [fileId, extension] = data.documentName.split('.');
+    const extension = data.documentName.split('.')[1];
     if (!['cpp', 'java', 'py'].includes(extension)) {
       return;
     }

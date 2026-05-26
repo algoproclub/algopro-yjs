@@ -58,12 +58,17 @@ export class FirebaseAuth implements Extension {
       return 'read-write';
     }
 
-    // FIXME: split by extension etc.
+    if (!documentName.includes('.')) {
+      return 'read-write';
+    }
+
+    const fileID = documentName.split('.')[0];
+
     const db = this.app.database();
     const [defaultPermissionSnapshot, userPermissionSnapshot] =
       await Promise.all([
-        db.ref(`files/${documentName}/settings/defaultPermission`).get(),
-        db.ref(`files/${documentName}/users/${auth.userID}/permission`).get(),
+        db.ref(`files/${fileID}/settings/defaultPermission`).get(),
+        db.ref(`files/${fileID}/users/${auth.userID}/permission`).get(),
       ]);
 
     const defaultPermission =

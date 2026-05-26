@@ -13,7 +13,8 @@
     "@hocuspocus/extension-sqlite": "^4.1.0",
     "@hocuspocus/server": "^4.1.0",
     "dotenv": "^17.4.2",
-    "firebase-admin": "^13.10.0"
+    "firebase-admin": "^13.10.0",
+    "y-leveldb": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.19",
