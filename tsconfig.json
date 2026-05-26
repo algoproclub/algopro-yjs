@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
-    "preserveConstEnums": true,
-    "outDir": "dist",
-    "noImplicitAny": false,
-    "moduleResolution": "node",
-    "target": "es2018",
-    "module": "CommonJS",
-    "esModuleInterop": true
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts"]
+  "exclude": ["node_modules"]
 }
