@@ -3,7 +3,9 @@ import type {
   onAuthenticatePayload,
   onTokenSyncPayload,
 } from '@hocuspocus/server';
-import * as admin from 'firebase-admin';
+import { cert, initializeApp, type App } from 'firebase-admin/app';
+import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
+import { getDatabase } from 'firebase-admin/database';
 
 type AuthContext = {
   userID: string;
@@ -15,8 +17,8 @@ type Permission = 'OWNER' | 'READ_WRITE' | 'READ' | 'PRIVATE' | null;
 
 export const initializeFirebaseAdmin = () => {
   if (process.env.NODE_ENV === 'production') {
-    return admin.initializeApp({
-      credential: admin.credential.cert(
+    return initializeApp({
+      credential: cert(
         process.env.FIREBASE_CRED_PATH || './serviceAccountKey.json'
       ),
       databaseURL:
@@ -24,28 +26,28 @@ export const initializeFirebaseAdmin = () => {
         'https://algopro-app-default-rtdb.europe-west1.firebasedatabase.app',
     });
   }
-  return admin.initializeApp({
+  return initializeApp({
     projectId: 'algopro-app',
     databaseURL: 'http://firebase:9000?ns=algopro-app-default-rtdb',
   });
 };
 
 export class FirebaseAuth implements Extension {
-  readonly app: admin.app.App;
-  readonly tokenCache = new Map<string, admin.auth.DecodedIdToken>();
+  readonly app: App;
+  readonly tokenCache = new Map<string, DecodedIdToken>();
 
-  constructor(app: admin.app.App) {
+  constructor(app: App) {
     this.app = app;
   }
 
-  private async verifyToken(token: string): Promise<admin.auth.DecodedIdToken> {
+  private async verifyToken(token: string): Promise<DecodedIdToken> {
     const cached = this.tokenCache.get(token);
 
     if (cached && cached.exp * 1000 > Date.now() + 5000) {
       return cached;
     }
 
-    const decoded = await this.app.auth().verifyIdToken(token);
+    const decoded = await getAuth(this.app).verifyIdToken(token);
     this.tokenCache.set(token, decoded);
     return decoded;
   }
@@ -64,7 +66,7 @@ export class FirebaseAuth implements Extension {
 
     const fileID = documentName.split('.')[0];
 
-    const db = this.app.database();
+    const db = getDatabase(this.app);
     const [defaultPermissionSnapshot, userPermissionSnapshot] =
       await Promise.all([
         db.ref(`files/${fileID}/settings/defaultPermission`).get(),

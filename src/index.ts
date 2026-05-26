@@ -3,9 +3,9 @@ import { SQLite } from '@hocuspocus/extension-sqlite';
 import process from 'process';
 import dotenv from 'dotenv';
 
-import { initializeFirebaseAdmin, FirebaseAuth } from './FirebaseAuth';
-import { CopyFileAPI } from './CopyFileAPI';
-import { StatsSync } from './StatsSync';
+import { initializeFirebaseAdmin, FirebaseAuth } from './FirebaseAuth.js';
+import { CopyFileAPI } from './CopyFileAPI.js';
+import { StatsSync } from './StatsSync.js';
 
 dotenv.config();
 

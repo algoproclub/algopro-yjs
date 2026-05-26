@@ -1,13 +1,14 @@
 import type { Extension, onChangePayload } from '@hocuspocus/server';
-import * as admin from 'firebase-admin';
+import { type App } from 'firebase-admin/app';
+import { getDatabase } from 'firebase-admin/database';
 
 export class StatsSync implements Extension {
-  readonly app: admin.app.App;
+  readonly app: App;
   readonly chunkSize = 100;
   instance: onChangePayload['instance'] | null = null;
   updateTimes = new Map<string, number>();
 
-  constructor(app: admin.app.App) {
+  constructor(app: App) {
     this.app = app;
     setInterval(() => {
       void this.sync();
@@ -20,7 +21,7 @@ export class StatsSync implements Extension {
     }
 
     const instance = this.instance;
-    const dbRoot = this.app.database().ref('files');
+    const dbRoot = getDatabase(this.app).ref('files');
     const changed = this.updateTimes;
     this.updateTimes = new Map<string, number>();
 

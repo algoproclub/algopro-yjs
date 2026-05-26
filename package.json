@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc && cp .env dist/.env"
+    "build": "tsc && cp .env dist/.env",
+    "dev": "npm run build && node dist/index.js"
   },
   "engines": {
     "node": ">=22"
@@ -17,6 +18,7 @@
     "y-leveldb": "^0.2.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.19",
     "typescript": "^5.9.3"
   }
