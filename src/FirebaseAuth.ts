@@ -47,7 +47,18 @@ export class FirebaseAuth implements Extension {
       return cached;
     }
 
-    const decoded = await getAuth(this.app).verifyIdToken(token);
+    let decoded: DecodedIdToken;
+    if (process.env.NODE_ENV === 'production') {
+      decoded = await getAuth(this.app).verifyIdToken(token);
+    } else {
+      // The auth emulator doesn't support verifying tokens
+      const tok = (await import('jsonwebtoken')).decode(token);
+      if (!tok) {
+        throw new Error('Invalid JSON Web Token');
+      }
+
+      decoded = (tok as unknown) as DecodedIdToken;
+    }
     this.tokenCache.set(token, decoded);
     return decoded;
   }
