@@ -33,6 +33,8 @@ The server loads `.env` at startup.
     - `https://algopro-app-default-rtdb.europe-west1.firebasedatabase.app`
   - Default outside production:
     - `http://firebase:9000?ns=algopro-app-default-rtdb`
+- `DATABASE_PATH`
+  - Default: `./db.sqlite`
 
 ## Deployment Steps
 

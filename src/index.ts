@@ -11,13 +11,15 @@ dotenv.config();
 
 const firebaseAdmin = initializeFirebaseAdmin();
 
+const dbPath = process.env.DATABASE_PATH || './db.sqlite';
+
 const server = new Server({
   port: process.env.PORT ? parseInt(process.env.PORT) : 1234,
   address: process.env.HOST || '127.0.0.1',
   name: process.env.NAME || 'algopro-yjs',
 
   extensions: [
-    new SQLite({ database: 'db.sqlite' }),
+    new SQLite({ database: dbPath }),
     new FirebaseAuth(firebaseAdmin),
     new CopyFileAPI(),
     new StatsSync(firebaseAdmin),
