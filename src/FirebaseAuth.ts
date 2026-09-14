@@ -34,33 +34,23 @@ export const initializeFirebaseAdmin = () => {
 
 export class FirebaseAuth implements Extension {
   readonly app: App;
-  readonly tokenCache = new Map<string, DecodedIdToken>();
 
   constructor(app: App) {
     this.app = app;
   }
 
   private async verifyToken(token: string): Promise<DecodedIdToken> {
-    const cached = this.tokenCache.get(token);
-
-    if (cached && cached.exp * 1000 > Date.now() + 5000) {
-      return cached;
-    }
-
-    let decoded: DecodedIdToken;
-    if (process.env.NODE_ENV === 'production') {
-      decoded = await getAuth(this.app).verifyIdToken(token);
-    } else {
+    if (process.env.NODE_ENV !== 'production') {
       // The auth emulator doesn't support verifying tokens
       const tok = (await import('jsonwebtoken')).decode(token);
       if (!tok) {
         throw new Error('Invalid JSON Web Token');
       }
 
-      decoded = (tok as unknown) as DecodedIdToken;
+      return (tok as unknown) as DecodedIdToken;
     }
-    this.tokenCache.set(token, decoded);
-    return decoded;
+
+    return await getAuth(this.app).verifyIdToken(token);
   }
 
   private async getAccess(

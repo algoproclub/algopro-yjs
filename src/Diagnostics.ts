@@ -34,7 +34,6 @@ export class Diagnostics implements Extension {
       let idleDocuments = 0;
       let textCharacters = 0;
       let largestTextCharacters = 0;
-      let expiredTokens = 0;
       let yjsStructs = 0;
       let largestDocumentStructs = 0;
       for (const document of instance.documents.values()) {
@@ -56,9 +55,6 @@ export class Diagnostics implements Extension {
           textCharacters += text.length;
           largestTextCharacters = Math.max(largestTextCharacters, text.length);
         }
-      }
-      for (const token of this.auth.tokenCache.values()) {
-        if (token.exp * 1000 <= now) expiredTokens++;
       }
       const utilization = performance.eventLoopUtilization();
       const delta = performance.eventLoopUtilization(
@@ -88,8 +84,6 @@ export class Diagnostics implements Extension {
           largestDocumentStructs,
           textCharacters,
           largestTextCharacters,
-          tokenCacheEntries: this.auth.tokenCache.size,
-          expiredTokenCacheEntries: expiredTokens,
           pendingStatsDocuments: this.stats.updateTimes.size,
           activeStatsRuns: this.stats.activeRuns,
         })
