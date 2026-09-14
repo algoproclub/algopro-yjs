@@ -6,10 +6,14 @@ import dotenv from 'dotenv';
 import { initializeFirebaseAdmin, FirebaseAuth } from './FirebaseAuth.js';
 import { CopyFileAPI } from './CopyFileAPI.js';
 import { StatsSync } from './StatsSync.js';
+import { Diagnostics } from './Diagnostics.js';
 
 dotenv.config();
 
 const firebaseAdmin = initializeFirebaseAdmin();
+
+const firebaseAuth = new FirebaseAuth(firebaseAdmin);
+const statsSync = new StatsSync(firebaseAdmin);
 
 const dbPath = process.env.DATABASE_PATH || './db.sqlite';
 
@@ -20,9 +24,10 @@ const server = new Server({
 
   extensions: [
     new SQLite({ database: dbPath }),
-    new FirebaseAuth(firebaseAdmin),
+    firebaseAuth,
     new CopyFileAPI(),
-    new StatsSync(firebaseAdmin),
+    statsSync,
+    new Diagnostics(firebaseAuth, statsSync),
   ],
 });
 

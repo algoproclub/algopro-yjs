@@ -7,12 +7,54 @@ export class StatsSync implements Extension {
   readonly chunkSize = 100;
   instance: onChangePayload['instance'] | null = null;
   updateTimes = new Map<string, number>();
+  activeRuns = 0;
+  private readonly timer: ReturnType<typeof setInterval>;
 
   constructor(app: App) {
     this.app = app;
-    setInterval(() => {
-      void this.sync();
+    this.timer = setInterval(() => {
+      void this.runSync();
     }, 30000);
+    this.timer.unref();
+  }
+
+  async onDestroy() {
+    clearInterval(this.timer);
+  }
+
+  private async runSync() {
+    if (this.instance === null || this.updateTimes.size === 0) {
+      return;
+    }
+
+    const started = performance.now();
+    const documents = this.updateTimes.size;
+    this.activeRuns++;
+    console.log(
+      JSON.stringify({
+        event: 'stats_sync_start',
+        documents,
+        activeRuns: this.activeRuns,
+      })
+    );
+    let completed = false;
+    try {
+      await this.sync();
+      completed = true;
+    } catch (error) {
+      console.error('Stats sync failed', error);
+    } finally {
+      this.activeRuns--;
+      console.log(
+        JSON.stringify({
+          event: 'stats_sync_end',
+          documents,
+          durationMs: Math.round(performance.now() - started),
+          activeRuns: this.activeRuns,
+          completed,
+        })
+      );
+    }
   }
 
   private async sync() {
@@ -43,6 +85,21 @@ export class StatsSync implements Extension {
         }
       })
     );
+
+    const failures = readResults.filter(result => result.status === 'rejected');
+    if (failures.length > 0) {
+      console.error(
+        JSON.stringify({
+          event: 'stats_sync_document_errors',
+          failedDocuments: failures.length,
+          totalDocuments: readResults.length,
+        })
+      );
+      // Bound error output even if an entire batch fails.
+      for (const failure of failures.slice(0, 3)) {
+        console.error('Stats sync document failed', failure.reason);
+      }
+    }
 
     const teacherUpdates = readResults.flatMap(result =>
       result.status === 'fulfilled' ? [result.value] : []
