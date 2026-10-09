@@ -1,11 +1,14 @@
-import type {
-  Extension,
-  onAuthenticatePayload,
-  onTokenSyncPayload,
+import {
+  OutgoingMessage,
+  type Extension,
+  type onAuthenticatePayload,
+  type onTokenSyncPayload,
 } from '@hocuspocus/server';
 import { cert, initializeApp, type App } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
+import { isClassNotesDocument, parseClassNotesDocument } from './ClassNotes.js';
 
 type AuthContext = {
   userID: string;
@@ -51,23 +54,63 @@ export class FirebaseAuth implements Extension {
     if (process.env.NODE_ENV === 'production') {
       decoded = await getAuth(this.app).verifyIdToken(token);
     } else {
-      // The auth emulator doesn't support verifying tokens
       const tok = (await import('jsonwebtoken')).decode(token);
-      if (!tok) {
+      if (
+        !tok ||
+        typeof tok === 'string' ||
+        typeof tok.sub !== 'string' ||
+        !tok.sub
+      ) {
         throw new Error('Invalid JSON Web Token');
       }
 
-      decoded = (tok as unknown) as DecodedIdToken;
+      // Raw Firebase JWTs store the UID in sub; the Admin SDK adds uid on verification.
+      decoded = { ...tok, uid: tok.sub } as unknown as DecodedIdToken;
     }
     this.tokenCache.set(token, decoded);
     return decoded;
   }
 
   private async getAccess(
-    auth: AuthContext,
+    auth: DecodedIdToken,
     documentName: string
   ): Promise<AccessLevel> {
-    if (auth.admin) {
+    if (isClassNotesDocument(documentName)) {
+      const { groupID, classID, creationTime } =
+        parseClassNotesDocument(documentName);
+      const firestore = getFirestore(this.app);
+      const groupRef = firestore.collection('groups').doc(groupID);
+      const [group, groupClass] = await Promise.all([
+        groupRef.get(),
+        groupRef.collection('classes').doc(classID).get(),
+      ]);
+      if (
+        !group.exists ||
+        !groupClass.exists ||
+        group.get('deleting') === true ||
+        groupClass.get('creationTime') !== creationTime
+      ) {
+        return 'none';
+      }
+
+      const schoolID = group.get('school');
+      if (auth.admin === true) return 'read-write';
+      if (
+        typeof schoolID === 'string' &&
+        Array.isArray(auth.teacher) &&
+        auth.teacher.includes(schoolID)
+      ) {
+        return 'read-write';
+      }
+
+      const user = await firestore.collection('userdata').doc(auth.uid).get();
+      const groups = user.get('groups');
+      return Array.isArray(groups) && groups.includes(groupID)
+        ? 'read-only'
+        : 'none';
+    }
+
+    if (auth.admin === true) {
       return 'read-write';
     }
 
@@ -81,7 +124,7 @@ export class FirebaseAuth implements Extension {
     const [defaultPermissionSnapshot, userPermissionSnapshot] =
       await Promise.all([
         db.ref(`files/${fileID}/settings/defaultPermission`).get(),
-        db.ref(`files/${fileID}/users/${auth.userID}/permission`).get(),
+        db.ref(`files/${fileID}/users/${auth.uid}/permission`).get(),
       ]);
 
     const defaultPermission =
@@ -116,17 +159,15 @@ export class FirebaseAuth implements Extension {
         throw new Error('User is not registered');
       }
 
-      const authContext = { userID: token.uid, admin: !!token.admin };
+      const authContext = { userID: token.uid, admin: token.admin === true };
 
-      const accessLevel = await this.getAccess(authContext, data.documentName);
+      const accessLevel = await this.getAccess(token, data.documentName);
 
       if (accessLevel === 'none') {
         throw new Error('User does not have access to this document');
       }
 
-      if (accessLevel === 'read-only') {
-        data.connectionConfig.readOnly = true;
-      }
+      data.connectionConfig.readOnly = accessLevel === 'read-only';
 
       console.log(
         `Authenticated user ${token.uid} (${token.email}) for ${data.documentName} with ${data.connectionConfig.readOnly ? 'read-only' : 'read-write'} access`
@@ -150,16 +191,19 @@ export class FirebaseAuth implements Extension {
         throw new Error('Token user does not match authenticated user');
       }
 
-      const accessLevel = await this.getAccess(
-        { userID: token.uid, admin: token.admin === true },
-        data.documentName
-      );
+      const accessLevel = await this.getAccess(token, data.documentName);
 
       if (accessLevel === 'none') {
         throw new Error('User does not have access to this document');
       }
 
       data.connectionConfig.readOnly = accessLevel === 'read-only';
+      data.connection.readOnly = data.connectionConfig.readOnly;
+      data.connection.send(
+        new OutgoingMessage(data.connection.messageAddress)
+          .writeAuthenticated(data.connection.readOnly)
+          .toUint8Array()
+      );
 
       console.log(
         `Token sync for ${token.uid} on ${data.documentName} with ${data.connectionConfig.readOnly ? 'read-only' : 'read-write'} access`

@@ -1,6 +1,7 @@
 import type { Extension, onChangePayload } from '@hocuspocus/server';
 import { type App } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { isClassNotesDocument } from './ClassNotes.js';
 
 export class StatsSync implements Extension {
   readonly app: App;
@@ -72,6 +73,8 @@ export class StatsSync implements Extension {
   }
 
   async onChange(data: onChangePayload) {
+    if (isClassNotesDocument(data.documentName)) return;
+
     this.instance = data.instance;
 
     const extension = data.documentName.split('.')[1];
