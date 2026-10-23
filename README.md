@@ -38,10 +38,10 @@ The server loads `.env` at startup.
 
 ## Deployment Steps
 
-1. Install dependencies:
+1. Install dependencies (with `pnpm` v12 as the package manager):
 
 ```bash
-npm install
+pnpm install --frozen-lockfile
 ```
 
 2. Create/verify environment file (example):
@@ -49,7 +49,7 @@ npm install
 ```env
 NODE_ENV=production
 PORT=1234
-HOST=0.0.0.0
+HOST=127.0.0.1
 NAME=algopro-yjs
 SECURITY_KEY=replace-with-long-random-secret
 FIREBASE_CRED_PATH=/app/secrets/serviceAccountKey.json
@@ -61,7 +61,7 @@ FIREBASE_DB_URL=https://your-project-default-rtdb.region.firebasedatabase.app
 4. Build:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 5. Run:
